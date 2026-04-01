@@ -31,6 +31,7 @@
     "ai": "^5.0.39",
     "axios": "^1.11.0",
     "baseline-browser-mapping": "^2.10.12",
+    "bcryptjs": "^3.0.3",
     "caniuse-lite": "^1.0.30001782",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -38,8 +39,11 @@
     "embla-carousel-react": "^8.6.0",
     "flask": "^0.2.10",
     "framer-motion": "^12.23.12",
+    "jsonwebtoken": "^9.0.3",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.426.0",
+    "mongodb": "^7.1.1",
+    "mongoose": "^9.3.3",
     "nanoid": "^5.1.5",
     "next": "^15.5.0",
     "next-auth": "^4.24.13",
@@ -57,6 +61,8 @@
     "zod": "^4.1.5"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.14.10",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.3",

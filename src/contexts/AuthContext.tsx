@@ -33,44 +33,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const LOCAL_ACCOUNTS_KEY = 'carebot_local_accounts_v1';
-
-type LocalAccount = {
-  id: string;
-  fullName: string;
-  email: string;
-  mobileNumber: string;
-  password: string;
-  profile?: {
-    firstName?: string;
-    lastName?: string;
-    location?: string;
-    avatar?: string;
-  };
-};
-
-const isNetworkError = (error: any) =>
-  error?.code === 'NETWORK_ERROR' ||
-  error?.code === 'ERR_NETWORK' ||
-  error?.message?.includes('Network Error') ||
-  error?.message?.includes('fetch') ||
-  error?.message?.includes('ECONNREFUSED') ||
-  (error?.response && error?.response?.status >= 400 && !error?.response?.data?.error);
-
-const getLocalAccounts = (): LocalAccount[] => {
-  try {
-    const raw = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-};
-
-const setLocalAccounts = (accounts: LocalAccount[]) => {
-  localStorage.setItem(LOCAL_ACCOUNTS_KEY, JSON.stringify(accounts));
-};
-
-const makeToken = () => `local_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -110,23 +72,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error fetching NextAuth session:', e);
       }
 
-      // Check if user is logged in natively on app start
+      // Check if user is logged in natively on app start via JWT
       const token = localStorage.getItem('token');
       const savedUser = localStorage.getItem('user');
 
       if (token && savedUser) {
         try {
           setUser(JSON.parse(savedUser));
-          // Verify token is still valid
-          authAPI.getProfile().catch(() => {
-            // Keep local session if backend is unavailable
-            const fallbackUser = localStorage.getItem('user');
-            if (!fallbackUser) {
-              localStorage.removeItem('token');
-              localStorage.removeItem('user');
-              setUser(null);
-            }
-          });
+          
+          // Verify token is still valid with the real backend
+          const profileData = await authAPI.getProfile().catch(() => null);
+          if (profileData && profileData.user) {
+            setUser({ ...JSON.parse(savedUser), ...profileData.user });
+            localStorage.setItem('user', JSON.stringify({ ...JSON.parse(savedUser), ...profileData.user }));
+          } else {
+            // Token invalid or network down, clear session to force re-auth
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setUser(null);
+          }
         } catch (error) {
           localStorage.removeItem('token');
           localStorage.removeItem('user');
@@ -151,36 +115,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      
-      // Local fallback when backend is unavailable
-      if (isNetworkError(error)) {
-        const account = getLocalAccounts().find(
-          (a) =>
-            (a.email === emailOrMobile || a.mobileNumber === emailOrMobile) &&
-            a.password === password
-        );
-        if (!account) {
-          throw new Error('Invalid credentials.');
-        }
-        const localUser = {
-          id: account.id,
-          fullName: account.fullName,
-          email: account.email,
-          mobileNumber: account.mobileNumber,
-          profile: account.profile || {},
-        };
-        localStorage.setItem('token', makeToken());
-        localStorage.setItem('user', JSON.stringify(localUser));
-        setUser(localUser);
-        return;
-      }
-      
-      // Handle API errors
       if (error.response?.data?.error) {
         throw new Error(error.response.data.error);
       }
-      
-      // Handle other errors
       throw new Error(error.message || 'Login failed. Please try again.');
     }
   };
@@ -204,52 +141,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error: any) {
       console.error('Signup error:', error);
-      
-      // Local fallback when backend is unavailable
-      if (isNetworkError(error)) {
-        const accounts = getLocalAccounts();
-        const exists = accounts.some(
-          (a) => a.email === userData.email || a.mobileNumber === userData.mobileNumber
-        );
-        if (exists) {
-          throw new Error('User already exists with this email or mobile number.');
-        }
-
-        const names = userData.fullName.trim().split(/\s+/);
-        const newAccount: LocalAccount = {
-          id: `local_user_${Date.now()}`,
-          fullName: userData.fullName.trim(),
-          email: userData.email.trim(),
-          mobileNumber: userData.mobileNumber.trim(),
-          password: userData.password,
-          profile: {
-            firstName: names[0] || '',
-            lastName: names.slice(1).join(' ') || '',
-            location: '',
-          },
-        };
-        accounts.push(newAccount);
-        setLocalAccounts(accounts);
-
-        const localUser = {
-          id: newAccount.id,
-          fullName: newAccount.fullName,
-          email: newAccount.email,
-          mobileNumber: newAccount.mobileNumber,
-          profile: newAccount.profile || {},
-        };
-        localStorage.setItem('token', makeToken());
-        localStorage.setItem('user', JSON.stringify(localUser));
-        setUser(localUser);
-        return;
-      }
-      
-      // Handle API errors
       if (error.response?.data?.error) {
         throw new Error(error.response.data.error);
       }
-      
-      // Handle other errors
       throw new Error(error.message || 'Signup failed. Please try again.');
     }
   };
@@ -274,26 +168,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('user', JSON.stringify(updatedUser));
       setUser(updatedUser);
     } catch (error: any) {
-      // Local fallback when backend is unavailable
-      if (isNetworkError(error) && user) {
-        const updatedUser = { ...user, ...profileData };
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        setUser(updatedUser);
-
-        const accounts = getLocalAccounts();
-        const index = accounts.findIndex((a) => a.id === user.id);
-        if (index !== -1) {
-          accounts[index] = {
-            ...accounts[index],
-            fullName: (updatedUser as any).fullName || accounts[index].fullName,
-            email: (updatedUser as any).email || accounts[index].email,
-            mobileNumber: (updatedUser as any).mobileNumber || accounts[index].mobileNumber,
-            profile: (updatedUser as any).profile || accounts[index].profile,
-          };
-          setLocalAccounts(accounts);
-        }
-        return;
-      }
       throw new Error(error.response?.data?.error || 'Profile update failed');
     }
   };

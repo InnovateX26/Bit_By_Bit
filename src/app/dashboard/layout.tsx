@@ -151,12 +151,6 @@ export default function DashboardLayout({
               {getPageTitle()}
             </h1>
           </div>
-
-          <Link href="/dashboard/profile">
-            <button className="w-10 h-10 rounded-full bg-cyan-100">
-              <User size={20} />
-            </button>
-          </Link>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-[#e8f6f6]">

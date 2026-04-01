@@ -43,17 +43,8 @@ const LoginPage = () => {
   };
 
   return (
-    <main
-      className={`
-        relative min-h-screen flex items-center justify-center
-        bg-gradient-to-br from-sky-300 via-sky-100 to-sky-400
-        bg-[length:300%_300%] animate-bgShift overflow-hidden
-      `}
-    >
-      {/* Glow overlay */}
-      <div className="absolute inset-0 bg-gradient-to-tr from-sky-200/40 via-transparent to-white/30 opacity-60 animate-pulse" />
-
-      <Card className="relative w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 rounded-2xl overflow-hidden shadow-[0_0_25px_rgba(0,0,0,0.25)] transition-all duration-300 hover:shadow-[0_0_50px_rgba(56,189,248,0.6)] backdrop-blur-md">
+    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-sky-200 via-white to-sky-300 bg-[length:400%_400%] animate-backgroundMove">
+      <Card className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 rounded-2xl overflow-hidden shadow-[0_0_25px_rgba(0,0,0,0.25)] transition-all duration-300 hover:shadow-[0_0_50px_rgba(56,189,248,0.6)]">
         
         {/* Left Side - Login Form */}
         <div className="flex flex-col justify-center items-center p-10 bg-white/90 backdrop-blur-md">
@@ -114,6 +105,26 @@ const LoginPage = () => {
           </h1>
         </div>
       </Card>
+
+      {/* Animations */}
+      <style jsx>{`
+        @keyframes backgroundMove {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        .animate-backgroundMove {
+          animation: backgroundMove 20s ease infinite; /* slowed down */
+        }
+        @keyframes glow {
+          0% { text-shadow: 0 0 10px rgba(255,255,255,0.6), 0 0 20px rgba(56,189,248,0.8); }
+          50% { text-shadow: 0 0 20px rgba(255,255,255,0.8), 0 0 40px rgba(56,189,248,1); }
+          100% { text-shadow: 0 0 10px rgba(255,255,255,0.6), 0 0 20px rgba(56,189,248,0.8); }
+        }
+        .animate-textGlow {
+          animation: glow 2.5s ease-in-out infinite;
+        }
+      `}</style>
     </main>
   );
 };
