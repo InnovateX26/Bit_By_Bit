@@ -31,7 +31,9 @@ const messageContentVariants = cva(
         contained: [
           "max-w-[80%] px-4 py-3",
           "group-[.is-user]:bg-primary group-[.is-user]:text-primary-foreground",
-          "group-[.is-assistant]:bg-secondary group-[.is-assistant]:text-foreground",
+          // Use a white background for assistant messages instead of the theme's
+          // secondary (blue) color so the assistant "blue part" appears white.
+          "group-[.is-assistant]:bg-white group-[.is-assistant]:text-foreground",
         ],
         flat: [
           "group-[.is-user]:max-w-[80%] group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground",

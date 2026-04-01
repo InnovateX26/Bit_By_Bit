@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { getSession, signOut } from 'next-auth/react';
 import { authAPI } from '@/lib/api';
 
 interface User {
@@ -27,7 +28,7 @@ interface AuthContextType {
     password: string;
     confirmPassword: string;
   }) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   updateProfile: (profileData: Partial<User>) => Promise<void>;
 }
 
@@ -50,9 +51,11 @@ type LocalAccount = {
 
 const isNetworkError = (error: any) =>
   error?.code === 'NETWORK_ERROR' ||
+  error?.code === 'ERR_NETWORK' ||
   error?.message?.includes('Network Error') ||
   error?.message?.includes('fetch') ||
-  error?.message?.includes('ECONNREFUSED');
+  error?.message?.includes('ECONNREFUSED') ||
+  (error?.response && error?.response?.status >= 400 && !error?.response?.data?.error);
 
 const getLocalAccounts = (): LocalAccount[] => {
   try {
@@ -82,29 +85,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in on app start
-    const token = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
-
-    if (token && savedUser) {
+    const checkAuth = async () => {
+      // First check NextAuth session (Google Login)
       try {
-        setUser(JSON.parse(savedUser));
-        // Verify token is still valid
-        authAPI.getProfile().catch(() => {
-          // Keep local session if backend is unavailable
-          const fallbackUser = localStorage.getItem('user');
-          if (!fallbackUser) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            setUser(null);
-          }
-        });
-      } catch (error) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        const session = await getSession();
+        if (session && session.user) {
+          const names = session.user.name?.split(' ') || [];
+          const nextAuthUser = {
+            id: session.user.email || 'google_user',
+            fullName: session.user.name || 'Google User',
+            email: session.user.email || '',
+            mobileNumber: '',
+            profile: {
+              firstName: names[0] || '',
+              lastName: names.slice(1).join(' ') || '',
+              avatar: session.user.image || '',
+            }
+          };
+          setUser(nextAuthUser);
+          setLoading(false);
+          return;
+        }
+      } catch (e) {
+        console.error('Error fetching NextAuth session:', e);
       }
-    }
-    setLoading(false);
+
+      // Check if user is logged in natively on app start
+      const token = localStorage.getItem('token');
+      const savedUser = localStorage.getItem('user');
+
+      if (token && savedUser) {
+        try {
+          setUser(JSON.parse(savedUser));
+          // Verify token is still valid
+          authAPI.getProfile().catch(() => {
+            // Keep local session if backend is unavailable
+            const fallbackUser = localStorage.getItem('user');
+            if (!fallbackUser) {
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              setUser(null);
+            }
+          });
+        } catch (error) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
+      }
+      setLoading(false);
+    };
+
+    checkAuth();
   }, []);
 
   const login = async (emailOrMobile: string, password: string) => {
@@ -223,10 +254,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
+    try {
+      await signOut({ redirect: false });
+    } catch(e) {}
+    if (typeof window !== 'undefined') {
+      window.location.href = '/auth/signin';
+    }
   };
 
   const updateProfile = async (profileData: Partial<User>) => {

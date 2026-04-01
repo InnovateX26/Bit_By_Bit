@@ -21,7 +21,7 @@ const ChatWindow = () => {
           messages.map((msg, index) => (
             <div
               key={index}
-              className="mb-2 p-2 bg-blue-100 rounded text-sm text-zinc-800"
+              className="mb-2 p-2 bg-white rounded text-sm text-zinc-800"
             >
               {msg}
             </div>
@@ -40,7 +40,7 @@ const ChatWindow = () => {
         />
         <button
           onClick={sendMessage}
-          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+          className="bg-white-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
         >
           Send
         </button>

@@ -4,10 +4,10 @@ import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { FacebookIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { useAuth } from "../../../contexts/AuthContext";
 
 const LoginPage = () => {
@@ -18,6 +18,7 @@ const LoginPage = () => {
     password: "",
   });
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -25,6 +26,16 @@ const LoginPage = () => {
       ...formData,
       [e.target.name]: e.target.value,
     });
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setGoogleLoading(true);
+      // start OAuth flow via NextAuth; callbackUrl will navigate after successful sign-in
+      await signIn("google", { callbackUrl: "/dashboard" });
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -119,17 +130,11 @@ const LoginPage = () => {
             <Button
               variant="outline"
               className="flex items-center justify-center py-3 rounded-lg border-gray-300 hover:bg-gray-100"
+              onClick={handleGoogleSignIn}
+              disabled={googleLoading}
             >
               <Image src="/google.svg" alt="Google" width={20} height={20} />
-              <span className="ml-2 text-sm">Login with Google</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              className="flex items-center justify-center py-3 rounded-lg border-gray-300 hover:bg-gray-100"
-            >
-              <FacebookIcon className="w-5 h-5 text-blue-600" />
-              <span className="ml-2 text-sm">Login with Facebook</span>
+              <span className="ml-2 text-sm">{googleLoading ? 'Redirecting...' : 'Login with Google'}</span>
             </Button>
           </div>
         </div>

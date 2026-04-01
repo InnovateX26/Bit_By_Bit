@@ -5,10 +5,10 @@ import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { FacebookIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../../../contexts/AuthContext";
+import { signIn } from "next-auth/react";
 
 const SignupPage = () => {
   const router = useRouter();
@@ -21,6 +21,7 @@ const SignupPage = () => {
     confirmPassword: "",
   });
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -28,6 +29,15 @@ const SignupPage = () => {
       ...formData,
       [e.target.name]: e.target.value,
     });
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setGoogleLoading(true);
+      await signIn("google", { callbackUrl: "/dashboard" });
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -151,14 +161,14 @@ const SignupPage = () => {
 
             {/* Social Buttons */}
             <div className="flex flex-col space-y-3 w-full">
-              <Button variant="outline" className="flex items-center justify-center py-3 rounded-lg border-gray-300 hover:bg-gray-100">
+              <Button
+                variant="outline"
+                className="flex items-center justify-center py-3 rounded-lg border-gray-300 hover:bg-gray-100"
+                onClick={handleGoogleSignIn}
+                disabled={googleLoading}
+              >
                 <img src="/google.svg" alt="Google" className="w-5 h-5" />
-                <span className="ml-2 text-sm">Sign up with Google</span>
-              </Button>
-
-              <Button variant="outline" className="flex items-center justify-center py-3 rounded-lg border-gray-300 hover:bg-gray-100">
-                <FacebookIcon className="w-5 h-5 text-blue-600" />
-                <span className="ml-2 text-sm">Sign up with Facebook</span>
+                <span className="ml-2 text-sm">{googleLoading ? 'Redirecting...' : 'Sign up with Google'}</span>
               </Button>
             </div>
           </form>
