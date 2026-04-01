@@ -8,7 +8,6 @@ import { Card } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../../../contexts/AuthContext";
-import { signIn } from "next-auth/react";
 
 const SignupPage = () => {
   const router = useRouter();
@@ -21,7 +20,6 @@ const SignupPage = () => {
     confirmPassword: "",
   });
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -29,15 +27,6 @@ const SignupPage = () => {
       ...formData,
       [e.target.name]: e.target.value,
     });
-  };
-
-  const handleGoogleSignIn = async () => {
-    try {
-      setGoogleLoading(true);
-      await signIn("google", { callbackUrl: "/dashboard" });
-    } finally {
-      setGoogleLoading(false);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -152,25 +141,6 @@ const SignupPage = () => {
               </Link>
             </div>
 
-            {/* Divider */}
-            <div className="flex items-center w-full my-4">
-              <div className="flex-grow border-t border-gray-300"></div>
-              <span className="mx-2 text-gray-500 text-sm">or sign up with</span>
-              <div className="flex-grow border-t border-gray-300"></div>
-            </div>
-
-            {/* Social Buttons */}
-            <div className="flex flex-col space-y-3 w-full">
-              <Button
-                variant="outline"
-                className="flex items-center justify-center py-3 rounded-lg border-gray-300 hover:bg-gray-100"
-                onClick={handleGoogleSignIn}
-                disabled={googleLoading}
-              >
-                <img src="/google.svg" alt="Google" className="w-5 h-5" />
-                <span className="ml-2 text-sm">{googleLoading ? 'Redirecting...' : 'Sign up with Google'}</span>
-              </Button>
-            </div>
           </form>
         </div>
 

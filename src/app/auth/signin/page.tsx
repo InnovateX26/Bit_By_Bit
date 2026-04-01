@@ -4,10 +4,8 @@ import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { useAuth } from "../../../contexts/AuthContext";
 
 const LoginPage = () => {
@@ -18,7 +16,6 @@ const LoginPage = () => {
     password: "",
   });
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -26,16 +23,6 @@ const LoginPage = () => {
       ...formData,
       [e.target.name]: e.target.value,
     });
-  };
-
-  const handleGoogleSignIn = async () => {
-    try {
-      setGoogleLoading(true);
-      // start OAuth flow via NextAuth; callbackUrl will navigate after successful sign-in
-      await signIn("google", { callbackUrl: "/dashboard" });
-    } finally {
-      setGoogleLoading(false);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -118,25 +105,6 @@ const LoginPage = () => {
             </div>
           </form>
 
-          {/* Divider */}
-          <div className="flex items-center w-full max-w-md my-6">
-            <div className="flex-grow border-t border-gray-300" />
-            <span className="mx-2 text-gray-500 text-sm">or login with</span>
-            <div className="flex-grow border-t border-gray-300" />
-          </div>
-
-          {/* Social Buttons */}
-          <div className="flex flex-col gap-3 w-full max-w-md">
-            <Button
-              variant="outline"
-              className="flex items-center justify-center py-3 rounded-lg border-gray-300 hover:bg-gray-100"
-              onClick={handleGoogleSignIn}
-              disabled={googleLoading}
-            >
-              <Image src="/google.svg" alt="Google" width={20} height={20} />
-              <span className="ml-2 text-sm">{googleLoading ? 'Redirecting...' : 'Login with Google'}</span>
-            </Button>
-          </div>
         </div>
 
         {/* Right Side - Welcome Section */}

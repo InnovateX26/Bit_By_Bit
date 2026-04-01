@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, useRef } from "react";
 import { Camera } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -9,15 +9,21 @@ export default function ProfilePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading, updateProfile } = useAuth();
+
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
     mobileNumber: "",
     location: "",
   });
+
+  const [originalData, setOriginalData] = useState(formData);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState("");
+
+  const [image, setImage] = useState("/avatar-placeholder.png");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -25,12 +31,16 @@ export default function ProfilePage() {
       return;
     }
     if (user) {
-      setFormData({
+      const data = {
         fullName: user.fullName || "",
         email: user.email || "",
         mobileNumber: user.mobileNumber || "",
         location: user.profile?.location || "",
-      });
+      };
+
+      setFormData(data);
+      setOriginalData(data);
+
       if (searchParams.get("setup") === "1") {
         setIsEditing(true);
         setStatus("Complete your profile, then click Save & Continue.");
@@ -43,6 +53,19 @@ export default function ProfilePage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const isChanged =
+    formData.fullName !== originalData.fullName ||
+    formData.email !== originalData.email ||
+    formData.mobileNumber !== originalData.mobileNumber ||
+    formData.location !== originalData.location;
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImage(URL.createObjectURL(file));
+    }
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setStatus("");
@@ -52,12 +75,13 @@ export default function ProfilePage() {
         fullName: formData.fullName,
         email: formData.email,
         mobileNumber: formData.mobileNumber,
-        profile: {
-          location: formData.location,
-        },
+        profile: { location: formData.location },
       });
+
+      setOriginalData(formData);
       setIsEditing(false);
       setStatus("Profile updated successfully.");
+
       if (searchParams.get("setup") === "1") {
         router.push("/dashboard");
       }
@@ -70,147 +94,97 @@ export default function ProfilePage() {
 
   if (loading || !user) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-6">
-        <p className="text-gray-600">Loading profile...</p>
+      <main className="min-h-screen flex items-center justify-center bg-gray-50">
+        Loading...
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-6">
-      <div className="w-full max-w-5xl flex flex-col lg:flex-row bg-white rounded-2xl shadow-lg overflow-hidden">
-        {/* Sidebar (only visible on md and up) */}
-        <aside className="hidden md:block w-12 md:w-16 bg-gray-200 p-2"></aside>
+    <main className="min-h-screen bg-gray-50 px-4 py-4"> {/* 🔥 reduced padding */}
 
-        {/* Profile Section for mobile (avatar above form) */}
-        <section className="flex flex-col items-center justify-center w-full lg:hidden bg-gray-50 border-b px-6 py-8">
-          {/* Avatar */}
-          <div className="relative">
-            <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full border-4 border-cyan-300 flex items-center justify-center bg-gray-100">
-              <img
-                src="/avatar-placeholder.png"
-                alt="avatar"
-                className="w-24 h-24 sm:w-28 sm:h-28 rounded-full"
-              />
-            </div>
-            <button className="absolute bottom-2 right-2 bg-white p-1 rounded-full shadow-md">
-              <Camera className="w-5 h-5 text-gray-600" />
-            </button>
-          </div>
+      {/* ✅ HEADER FIX */}
+      <h1 className="text-xl font-semibold mb-4 ml-2">Account</h1>
 
-          {/* Greeting */}
-          <div className="mt-6 text-center">
-            <p className="text-lg sm:text-xl font-semibold">Hi,</p>
-            <p className="text-xl sm:text-2xl font-bold">
-              {formData.fullName || "User Name"}
-            </p>
-          </div>
-        </section>
+      <div className="flex justify-center">
+        <div className="w-full max-w-5xl flex flex-col lg:flex-row bg-white rounded-2xl shadow-lg overflow-hidden">
 
-        {/* Form Section */}
-        <section className="flex-1 p-6 flex flex-col justify-center">
-          <form onSubmit={handleSubmit} className="space-y-6 w-full sm:w-[80%] mx-auto">
-            <div>
-              <label className="text-xs font-semibold">USER NAME</label>
+          <aside className="hidden md:block w-12 md:w-16 bg-gray-200"></aside>
+
+          {/* FORM */}
+          <section className="flex-1 p-6">
+            <form onSubmit={handleSubmit} className="space-y-6 w-full sm:w-[80%] mx-auto">
+
+              <div className="space-y-4">
+                <label className="block text-sm font-medium text-slate-600">Name</label>
+                <input name="fullName" value={formData.fullName} onChange={handleChange} disabled={!isEditing} className="w-full border-b p-2" />
+
+                <label className="block text-sm font-medium text-slate-600">Email</label>
+                <input name="email" value={formData.email} onChange={handleChange} disabled={!isEditing} className="w-full border-b p-2" />
+
+                <label className="block text-sm font-medium text-slate-600">Phone No.</label>
+                <input name="mobileNumber" value={formData.mobileNumber} onChange={handleChange} disabled={!isEditing} className="w-full border-b p-2" />
+
+                <label className="block text-sm font-medium text-slate-600">Location</label>
+                <input name="location" value={formData.location} onChange={handleChange} disabled={!isEditing} className="w-full border-b p-2" />
+              </div>
+
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditing((prev) => !prev);
+                    setStatus("");
+                  }}
+                  className="bg-cyan-100 px-6 py-2 rounded-full"
+                >
+                  {isEditing ? "Cancel" : "Edit"}
+                </button>
+
+                {isEditing && isChanged && (
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="bg-cyan-500 text-white px-6 py-2 rounded-full"
+                  >
+                    {isSaving ? "Saving..." : "Save & Continue"}
+                  </button>
+                )}
+              </div>
+
+              {status && <p>{status}</p>}
+            </form>
+          </section>
+
+          {/* PROFILE */}
+          <section className="hidden lg:flex flex-col items-center justify-center w-[45%] bg-gray-50 p-6">
+            <div className="relative">
+              <div className="w-32 h-32 rounded-full border-4 border-cyan-300 overflow-hidden">
+                <img src={image} className="w-full h-full object-cover" />
+              </div>
+
+              {isEditing && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute bottom-2 right-2 bg-white p-2 rounded-full shadow"
+                >
+                  <Camera className="w-5 h-5" />
+                </button>
+              )}
+
               <input
-                type="text"
-                name="fullName"
-                value={formData.fullName}
-                onChange={handleChange}
-                className="w-full border-b border-gray-300 focus:outline-none p-2 text-sm"
-                disabled={!isEditing}
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                onChange={handleImageChange}
+                className="hidden"
               />
             </div>
 
-            <div>
-              <label className="text-xs font-semibold">E-MAIL</label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="w-full border-b border-gray-300 focus:outline-none p-2 text-sm"
-                disabled={!isEditing}
-              />
-            </div>
+            <p className="mt-4 font-bold">{formData.fullName}</p>
+          </section>
 
-            <div>
-              <label className="text-xs font-semibold">MOBILE NUMBER</label>
-              <input
-                type="text"
-                name="mobileNumber"
-                value={formData.mobileNumber}
-                onChange={handleChange}
-                className="w-full border-b border-gray-300 focus:outline-none p-2 text-sm"
-                disabled={!isEditing}
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-semibold">LOCATION</label>
-              <input
-                type="text"
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                className="w-full border-b border-gray-300 focus:outline-none p-2 text-sm"
-                disabled={!isEditing}
-              />
-            </div>
-
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsEditing((prev) => !prev);
-                  setStatus("");
-                }}
-                className="w-full sm:w-auto bg-cyan-100 px-6 py-2 rounded-full shadow-md hover:shadow-lg transition"
-              >
-                {isEditing ? "Cancel" : "Edit"}
-              </button>
-
-              {/* Save Button visible on phone */}
-              <button
-                type="submit"
-                disabled={!isEditing || isSaving}
-                className="block lg:hidden w-full sm:w-auto bg-cyan-500 text-white px-6 py-2 rounded-full shadow-md hover:shadow-lg transition"
-              >
-                {isSaving ? "Saving..." : "Save & Continue"}
-              </button>
-            </div>
-            {status && <p className="text-sm text-slate-600">{status}</p>}
-          </form>
-        </section>
-
-        {/* Profile Section for desktop/tablet */}
-        <section className="hidden lg:flex flex-col items-center justify-center w-[45%] bg-gray-50 border-t lg:border-t-0 lg:border-l px-6 py-8">
-          {/* Avatar */}
-          <div className="relative">
-            <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full border-4 border-cyan-300 flex items-center justify-center bg-gray-100">
-              <img
-                src="/avatar-placeholder.png"
-                alt="avatar"
-                className="w-24 h-24 sm:w-28 sm:h-28 rounded-full"
-              />
-            </div>
-            <button className="absolute bottom-2 right-2 bg-white p-1 rounded-full shadow-md">
-              <Camera className="w-5 h-5 text-gray-600" />
-            </button>
-          </div>
-
-          {/* Greeting */}
-          <div className="mt-6 text-center">
-            <p className="text-lg sm:text-xl font-semibold">Hi,</p>
-            <p className="text-xl sm:text-2xl font-bold">
-              {formData.fullName || "User Name"}
-            </p>
-          </div>
-
-          <p className="mt-6 text-sm text-slate-500 text-center">
-            Edit profile details from the form section and click Save.
-          </p>
-        </section>
+        </div>
       </div>
     </main>
   );
