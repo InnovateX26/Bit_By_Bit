@@ -1,0 +1,13 @@
+/* src/app/globals.css */
+
+/* Tailwind base styles (if you're using Tailwind) */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom global styles */
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f9f9f9;
+}
