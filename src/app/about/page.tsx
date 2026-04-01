@@ -11,27 +11,30 @@ const teamMembers = [
   {
     name: "Bipasa Saha",
     image: "/bipasa.svg",
+    role: "Developer",
     linkedin: "https://www.linkedin.com/in/bipasa-saha-570000335/",
     github: "https://github.com/Bipasa777-lab",
   },
   {
     name: "Bikram Bera",
     image: "/bikram.svg",
-    linkedin: "http://www.linkedin.com/in/bikram-bera",
+    role: "Developer",
+    linkedin: "https://www.linkedin.com/in/bikram-bera-8502a2303/",
     github: "https://github.com/Rebikrrt399",
   },
   {
     name: "Animesh Sahoo",
     image: "/animesh.svg",
+    role: "Developer",
     linkedin: "https://www.linkedin.com/in/animesh-sahoo-b03151302/",
     github: "https://github.com/STROM6532",
   },
   {
-    name: "Not Available",
-    role: "Designer",
-    image: "/team/satyadiptee.png",
-    linkedin: "#",
-    github: "#",
+    name: "Santanu Maity",
+    image: "/santanu.svg",
+    role: "Developer",
+    linkedin: "https://www.linkedin.com/in/santanu-maity-8934b8372",
+    github: "https://github.com/santanumaity3155-spec",
   },
 ];
 
@@ -186,7 +189,7 @@ export default function AboutPage() {
 
       {/* FOOTER */}
       <footer className="bg-gray-900 text-white py-6 text-center mt-12">
-        <p>© {new Date().getFullYear()} CareBot+. All rights reserved.</p>
+        <p>©️ {new Date().getFullYear()} CareBot+. All rights reserved.</p>
       </footer>
     </div>
   );

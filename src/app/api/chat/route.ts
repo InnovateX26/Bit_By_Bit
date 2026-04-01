@@ -10,7 +10,9 @@ const google = createGoogleGenerativeAI({
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
-  const { messages }: { messages: UIMessage[] } = await req.json();
+  const { messages, language }: { messages: UIMessage[], language?: string } = await req.json();
+
+  const langInstruction = language ? `\n\n--- IMPORTANT: You must respond entirely in ${language}. ---` : "";
 
   const result = streamText({
     model: google("gemini-2.5-flash"),
@@ -35,9 +37,7 @@ Your role is to provide **accurate, safe, and evidence-based health information*
 ### Tone:
 
 * Friendly, caring, and easy to understand.
-* Short sentences, bullet points for red flags and next steps.
-
-      
+* Short sentences, bullet points for red flags and next steps.${langInstruction}
       `,
   });
 

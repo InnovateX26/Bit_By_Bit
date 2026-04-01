@@ -13,18 +13,75 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputToolbar,
+  PromptInputTools,
+  PromptInputAttachments,
+  PromptInputAttachment,
+  PromptInputActionMenu,
+  PromptInputActionMenuTrigger,
+  PromptInputActionMenuContent,
+  PromptInputActionAddAttachments,
 } from "@/components/ai-elements/prompt-input";
 import { Response } from "@/components/ai-elements/response";
-import { CopyIcon } from "lucide-react";
+import { CopyIcon, Mic, MicOff, Plus } from "lucide-react";
 import { Actions, Action } from "@/components/ai-elements/actions";
 import { Loader } from "@/components/ai-elements/loader";
 import { useAuth } from "@/contexts/AuthContext";
 import { recordChatMessage, RiskLevel } from "@/lib/userMetrics";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useEffect, useRef } from "react";
 
 const ChatPage = () => {
   const [input, setInput] = useState("");
+  const [language, setLanguage] = useState("English");
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
   const { messages, sendMessage, status } = useChat();
   const { user } = useAuth();
+
+  useEffect(() => {
+    // Initialize Speech Recognition for voice input
+    if (typeof window !== "undefined") {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = false;
+        recognitionRef.current.interimResults = false;
+        
+        recognitionRef.current.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          setInput((prev) => prev ? prev + " " + transcript : transcript);
+          setIsRecording(false);
+        };
+
+        recognitionRef.current.onerror = (event: any) => {
+          console.error("Speech recognition error", event.error);
+          setIsRecording(false);
+        };
+
+        recognitionRef.current.onend = () => {
+          setIsRecording(false);
+        };
+      }
+    }
+  }, []);
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      recognitionRef.current?.stop();
+      setIsRecording(false);
+    } else {
+      if (recognitionRef.current) {
+        const langMap: Record<string, string> = { "English": "en-US", "Spanish": "es-ES", "Hindi": "hi-IN", "Bengali": "bn-IN", "French": "fr-FR", "Arabic": "ar-SA" };
+        recognitionRef.current.lang = langMap[language] || "en-US";
+        recognitionRef.current.start();
+        setIsRecording(true);
+      } else {
+        alert("Speech Recognition API is not supported in this browser.");
+      }
+    }
+  };
 
   const classifyRisk = (text: string): RiskLevel => {
     const value = text.toLowerCase();
@@ -41,15 +98,50 @@ const ChatPage = () => {
     return "low";
   };
 
-  const handleSubmit = (message: { text?: string }) => {
+  const handleSubmit = async (message: any) => {
     const value = (message.text ?? input).trim();
-    if (!value) return;
+    if (!value && (!message.files || message.files.length === 0)) return;
+    
+    const parts: any[] = [{ type: 'text', text: value }];
+    
+    if (message.files && message.files.length > 0) {
+      for (const file of message.files) {
+        if (file.url) {
+          try {
+            const response = await fetch(file.url);
+            const blob = await response.blob();
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            });
+            parts.push({ 
+              type: 'file', 
+              url: dataUrl,
+              mediaType: file.mediaType || 'image/jpeg',
+              filename: file.filename || 'image.jpg'
+            });
+          } catch (e) {
+            console.error("Failed to read attachment", e);
+          }
+        }
+      }
+    }
+
     try {
       recordChatMessage(user, value, value, classifyRisk(value));
     } catch (e) {
       // ignore metrics errors
     }
-    sendMessage({ text: value });
+    
+    if (language !== "English") {
+      parts[0].text = `[Important: You must respond in the ${language} language.]\n\n${value || "Hello"}`;
+    }
+    
+    // @ts-ignore
+    sendMessage({ role: 'user', parts });
+
     setInput("");
   };
 
@@ -57,13 +149,42 @@ const ChatPage = () => {
     <div className="min-h-screen bg-sky-50">
       <div className="max-w-4xl mx-auto px-6 pb-40">
         <div className="flex flex-col items-stretch">
-          <Conversation className="h-full py-8">
+          
+          {/* Header Controls */}
+          <div className="flex items-center justify-between mt-8 mb-2 bg-white p-3 rounded-xl shadow-sm z-10 shrink-0">
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger className="w-[180px] h-9 bg-white opacity-100 shadow-sm border-slate-200 text-slate-600 transition-colors">
+                <SelectValue placeholder="Language" />
+              </SelectTrigger>
+              <SelectContent className="bg-white opacity-100 border border-slate-200 shadow-lg">
+                <SelectItem value="English">English</SelectItem>
+                <SelectItem value="Spanish">Spanish</SelectItem>
+                <SelectItem value="Hindi">Hindi</SelectItem>
+                <SelectItem value="Bengali">Bengali</SelectItem>
+                <SelectItem value="French">French</SelectItem>
+                <SelectItem value="Arabic">Arabic</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => window.location.reload()}
+              className="text-slate-600 hover:text-slate-900 gap-2"
+            >
+              <Plus className="size-4" />
+              New Chat
+            </Button>
+          </div>
+
+          <Conversation className="h-full py-2">
             <ConversationContent>
               {messages.map((message) => (
                 <div key={message.id}>
                   {message.parts.map((part, i) => {
-                    if (part.type === "text") {
-                      return (
+                    switch(part.type) {
+                      case "text":
+                        return (
                         <React.Fragment key={`${message.id}-${i}`}>
                           <Message from={message.role}>
                             <MessageContent>
@@ -85,8 +206,22 @@ const ChatPage = () => {
                             )}
                         </React.Fragment>
                       );
+                    case "file":
+                      return (
+                        <React.Fragment key={`${message.id}-${i}`}>
+                          <Message from={message.role}>
+                            <MessageContent>
+                              <div className="flex flex-wrap gap-2 mb-2 p-1">
+                                {/* @ts-ignore */}
+                                <img src={part.url} alt="attachment" className="max-w-64 max-h-64 object-cover rounded-lg border shadow-sm" />
+                              </div>
+                            </MessageContent>
+                          </Message>
+                        </React.Fragment>
+                      );
+                    default:
+                      return null;
                     }
-                    return null;
                   })}
                 </div>
               ))}
@@ -98,16 +233,37 @@ const ChatPage = () => {
       </div>
 
       {/* fixed input dock */}
-      <div className="fixed bottom-6 left-0 right-0 flex justify-center pointer-events-none">
-        <div className="w-full max-w-4xl px-6 pointer-events-auto">
-          <PromptInput onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md">
+      <div className="fixed bottom-6 left-0 right-0 flex justify-center pointer-events-none z-20">
+        <div className="w-full max-w-4xl px-4 md:px-6 pointer-events-auto">
+          <PromptInput onSubmit={handleSubmit} className="bg-white rounded-xl shadow-lg border-2 border-slate-100" accept="image/*" multiple>
+            <PromptInputAttachments>
+              {(file) => <PromptInputAttachment data={file} />}
+            </PromptInputAttachments>
             <PromptInputTextarea
               onChange={(e) => setInput(e.target.value)}
               value={input}
               placeholder="What would you like to know?"
             />
             <PromptInputToolbar>
-              <PromptInputSubmit variant="outline" disabled={!input} status={status} />
+              <PromptInputTools>
+                <PromptInputActionMenu>
+                  <PromptInputActionMenuTrigger />
+                  <PromptInputActionMenuContent>
+                    <PromptInputActionAddAttachments />
+                  </PromptInputActionMenuContent>
+                </PromptInputActionMenu>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className={`rounded-lg transition-colors ${isRecording ? 'text-red-500 bg-red-50' : 'text-slate-500'}`} 
+                  onClick={toggleRecording}
+                  type="button"
+                  title="Voice Input"
+                >
+                  {isRecording ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+                </Button>
+              </PromptInputTools>
+              <PromptInputSubmit disabled={!input && input.length === 0} status={status} />
             </PromptInputToolbar>
           </PromptInput>
         </div>

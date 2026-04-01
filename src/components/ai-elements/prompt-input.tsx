@@ -213,7 +213,7 @@ export type PromptInputProps = Omit<
   onSubmit: (
     message: PromptInputMessage,
     event: FormEvent<HTMLFormElement>
-  ) => void;
+  ) => void | Promise<void>;
 };
 
 export const PromptInput = ({
@@ -399,7 +399,7 @@ export const PromptInput = ({
     }
   };
 
-  const handleSubmit: FormEventHandler<HTMLFormElement> = (event) => {
+  const handleSubmit: FormEventHandler<HTMLFormElement> = async (event) => {
     event.preventDefault();
 
     const files: FileUIPart[] = items.map(({ ...item }) => ({
@@ -407,7 +407,8 @@ export const PromptInput = ({
     }));
     const formData = new FormData(event.currentTarget);
     const textValue = String(formData.get("message") ?? "");
-    onSubmit({ text: textValue, files }, event);
+    await onSubmit({ text: textValue, files }, event);
+    clear();
   };
 
   const ctx = useMemo<AttachmentsContext>(
