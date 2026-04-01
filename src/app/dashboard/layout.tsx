@@ -84,13 +84,9 @@ export default function DashboardLayout({
         } md:translate-x-0 flex-shrink-0`}
       >
         <div className="flex flex-col h-full">
-          <div className="pt-8 pb-6 px-6">
-            <Link href="/" className="text-3xl font-extrabold italic text-white tracking-wide">
-              caRebot<span className="text-cyan-400 not-italic">+</span>
-            </Link>
-          </div>
 
-          <div className="px-5 mb-6">
+
+          <div className="px-5 mb-6 mt-8">
             <div className="flex items-center gap-3 bg-[#16294a] text-gray-300 px-4 py-3 rounded-lg text-sm border border-[#233f6b]">
               <Shield size={16} className="text-cyan-400" />
               <span>Privacy-First AI</span>

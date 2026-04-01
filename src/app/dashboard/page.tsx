@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { 
   User as UserIcon, 
   ShieldCheck, 
@@ -8,16 +8,19 @@ import {
   Pill, 
   AlertTriangle, 
   Activity,
-  Clock
+  Clock,
+  Trash2
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { getUserMetrics, HistoryItem } from "@/lib/userMetrics";
+import { getUserMetrics, HistoryItem, deleteHistoryItem } from "@/lib/userMetrics";
+import { useRouter } from "next/navigation";
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"chat" | "med">("chat");
   const [chatHistory, setChatHistory] = useState<HistoryItem[]>([]);
   const [medHistory, setMedHistory] = useState<HistoryItem[]>([]);
@@ -28,27 +31,40 @@ export default function DashboardPage() {
     { label: "High Risk", value: 0, icon: Activity, color: "text-orange-500" },
   ]);
 
-  useEffect(() => {
-    const loadMetrics = () => {
-      const metrics = getUserMetrics(user);
-      setStats([
-        { label: "Total Chats", value: metrics.totalChats, icon: MessageSquare, color: "text-cyan-500" },
-        { label: "Med Queries", value: metrics.medQueries, icon: Pill, color: "text-blue-500" },
-        { label: "Emergencies", value: metrics.emergencies, icon: AlertTriangle, color: "text-red-500" },
-        { label: "High Risk", value: metrics.highRisk, icon: Activity, color: "text-orange-500" },
-      ]);
-      setChatHistory(metrics.chatHistory);
-      setMedHistory(metrics.medHistory);
-    };
+  const loadMetrics = useCallback(() => {
+    const metrics = getUserMetrics(user);
+    setStats([
+      { label: "Total Chats", value: metrics.totalChats, icon: MessageSquare, color: "text-cyan-500" },
+      { label: "Med Queries", value: metrics.medQueries, icon: Pill, color: "text-blue-500" },
+      { label: "Emergencies", value: metrics.emergencies, icon: AlertTriangle, color: "text-red-500" },
+      { label: "High Risk", value: metrics.highRisk, icon: Activity, color: "text-orange-500" },
+    ]);
+    setChatHistory(metrics.chatHistory);
+    setMedHistory(metrics.medHistory);
+  }, [user]);
 
+  useEffect(() => {
     loadMetrics();
     window.addEventListener("focus", loadMetrics);
     return () => window.removeEventListener("focus", loadMetrics);
-  }, [user]);
+  }, [loadMetrics]);
 
-  // Fallback to defaults matching screenshot if no user context available
   const fullName = user?.fullName || "Bipasa Saha Luchi";
   const email = user?.email || "bipasasahaluchi@gmail.com";
+
+  const handleDelete = (e: React.MouseEvent, id: string, type: "chat" | "med") => {
+    e.stopPropagation();
+    deleteHistoryItem(user, id, type);
+    loadMetrics(); // trigger quick view refresh
+  };
+
+  const handleRoute = (id: string, type: "chat" | "med") => {
+    if (type === "chat") {
+      router.push(`/dashboard/chat?id=${id}`);
+    } else {
+      router.push(`/dashboard/MedicationAssistant?id=${id}`);
+    }
+  };
 
   const renderBadge = (risk: string) => {
     switch (risk.toLowerCase()) {
@@ -143,12 +159,21 @@ export default function DashboardPage() {
                   {(activeTab === "chat" ? chatHistory : medHistory).map((item) => (
                     <div 
                       key={item.id} 
-                      className="flex items-start gap-4 p-5 rounded-2xl bg-slate-100/60 hover:bg-cyan-50/50 transition-colors cursor-pointer border border-transparent hover:border-cyan-100"
+                      onClick={() => handleRoute(item.id, activeTab)}
+                      className="group flex items-start gap-4 p-5 rounded-2xl bg-slate-100/60 hover:bg-cyan-50/50 transition-colors cursor-pointer border border-transparent hover:border-cyan-100 relative"
                     >
+                      <button 
+                         onClick={(e) => handleDelete(e, item.id, activeTab)}
+                         className="absolute top-4 right-4 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                         title="Delete Session"
+                      >
+                         <Trash2 className="w-4 h-4" />
+                      </button>
+
                       <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center flex-shrink-0 mt-0.5">
                         <MessageSquare className="w-5 h-5 text-cyan-500" strokeWidth={2.5} />
                       </div>
-                      <div className="flex-1 min-w-0 space-y-1.5">
+                      <div className="flex-1 min-w-0 pr-8 space-y-1.5">
                         <h3 className="font-bold text-slate-900 text-base">{item.title}</h3>
                         <p className="text-slate-500 text-sm line-clamp-2 leading-relaxed">
                           {item.snippet}

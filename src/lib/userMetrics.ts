@@ -41,7 +41,7 @@ const nowText = () =>
     minute: "2-digit",
   });
 
-const generateId = () => {
+export const generateId = () => {
   try {
     if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
       return crypto.randomUUID();
@@ -93,25 +93,35 @@ export const getUserMetrics = (user?: { id?: string; email?: string } | null): U
 
 export const recordChatMessage = (
   user: { id?: string; email?: string } | null | undefined,
+  id: string,
   title: string,
   snippet?: string,
   risk: RiskLevel = "low"
 ) => {
   updateMetrics(user, (current) => {
     const isHighRisk = risk === "high" || risk === "critical";
+    const existingIndex = current.chatHistory.findIndex(h => h.id === id);
+    let newHistory = [...current.chatHistory];
+    
+    // If it exists, overwrite it so we don't dupe history items on every sync
+    if (existingIndex !== -1) {
+      newHistory[existingIndex] = { ...newHistory[existingIndex], snippet: (snippet || title).trim() };
+      return { ...current, chatHistory: newHistory };
+    }
+
     return {
       ...current,
       totalChats: current.totalChats + 1,
       highRisk: current.highRisk + (isHighRisk ? 1 : 0),
       chatHistory: withHistoryLimit([
         {
-          id: generateId(),
+          id,
           title: title.trim(),
           snippet: (snippet || title).trim(),
           risk,
           date: nowText(),
         },
-        ...current.chatHistory,
+        ...newHistory,
       ]),
     };
   });
@@ -119,28 +129,57 @@ export const recordChatMessage = (
 
 export const recordMedicationQuery = (
   user: { id?: string; email?: string } | null | undefined,
+  id: string,
   query: string,
   responseSnippet: string,
   risk: RiskLevel = "low"
 ) => {
   updateMetrics(user, (current) => {
     const isHighRisk = risk === "high" || risk === "critical";
+    
+    const existingIndex = current.medHistory.findIndex(h => h.id === id);
+    let newHistory = [...current.medHistory];
+
+    if (existingIndex !== -1) {
+      newHistory[existingIndex] = { ...newHistory[existingIndex], snippet: responseSnippet.trim() };
+      return { ...current, medHistory: newHistory };
+    }
+
     return {
       ...current,
       medQueries: current.medQueries + 1,
       highRisk: current.highRisk + (isHighRisk ? 1 : 0),
       medHistory: withHistoryLimit([
         {
-          id: generateId(),
+          id,
           title: query.trim(),
           snippet: responseSnippet.trim(),
           risk,
           date: nowText(),
         },
-        ...current.medHistory,
+        ...newHistory,
       ]),
     };
   });
+};
+
+export const deleteHistoryItem = (
+  user: { id?: string; email?: string } | null | undefined,
+  id: string,
+  type: "chat" | "med"
+) => {
+  updateMetrics(user, (current) => {
+    if (type === "chat") {
+      return { ...current, chatHistory: current.chatHistory.filter(c => c.id !== id)};
+    } else {
+      return { ...current, medHistory: current.medHistory.filter(c => c.id !== id)};
+    }
+  });
+
+  // Remove persistent cached raw session payloads smoothly
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(`carebot_session_${id}`);
+  }
 };
 
 export const recordEmergencyEvent = (
@@ -156,4 +195,16 @@ export const recordEmergencyEvent = (
       highRisk: current.highRisk + (isHighRisk ? 1 : 0),
     };
   });
+};
+
+// Local storage session payload helpers
+export const saveLocalSession = (id: string, data: any) => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(`carebot_session_${id}`, JSON.stringify(data));
+};
+
+export const loadLocalSession = (id: string | null) => {
+  if (typeof window === "undefined" || !id) return null;
+  const raw = localStorage.getItem(`carebot_session_${id}`);
+  return raw ? JSON.parse(raw) : null;
 };

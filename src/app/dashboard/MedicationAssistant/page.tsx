@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { Bell, Plus, Search, Pill, ShieldAlert, Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
-import { recordMedicationQuery, RiskLevel } from "@/lib/userMetrics";
+import { recordMedicationQuery, RiskLevel, generateId, saveLocalSession, loadLocalSession } from "@/lib/userMetrics";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Loader } from "@/components/ai-elements/loader";
 
 interface Medication {
   id: number;
@@ -13,20 +15,40 @@ interface Medication {
   active: boolean;
 }
 
-export default function Page() {
+function PageContent() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  
   const [meds, setMeds] = useState<Medication[]>([]);
   const [query, setQuery] = useState("");
   const [aiResult, setAiResult] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
   
   // Add Medication Form State
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newTime, setNewTime] = useState("");
 
+  const queryId = searchParams.get("id");
+
   useEffect(() => {
     fetchMeds();
   }, []);
+
+  // Hydrate explicit medication history sessions dynamically
+  useEffect(() => {
+    if (queryId) {
+      const session = loadLocalSession(queryId);
+      if (session) {
+        setQuery(session.query || "");
+        setAiResult(session.aiResult || "");
+      }
+    } else {
+      setQuery("");
+      setAiResult("");
+    }
+  }, [queryId]);
 
   const fetchMeds = async () => {
     try {
@@ -36,7 +58,6 @@ export default function Page() {
         setMeds(data);
       }
     } catch (error) {
-      console.error("Failed to fetch medications", error);
     }
   };
 
@@ -51,13 +72,10 @@ export default function Page() {
       });
       fetchMeds();
       
-      // Reset form
       setNewName("");
       setNewTime("");
       setIsAdding(false);
-    } catch (error) {
-      console.error("Failed to add medication", error);
-    }
+    } catch (error) {}
   };
 
   const toggleReminder = async (id: number) => {
@@ -68,9 +86,7 @@ export default function Page() {
         headers: { "Content-Type": "application/json" },
       });
       fetchMeds();
-    } catch (error) {
-      console.error("Failed to toggle medication", error);
-    }
+    } catch (error) {}
   };
 
   const deleteMedication = async (id: number) => {
@@ -81,13 +97,12 @@ export default function Page() {
         headers: { "Content-Type": "application/json" },
       });
       fetchMeds();
-    } catch (error) {
-      console.error("Failed to delete medication", error);
-    }
+    } catch (error) {}
   };
 
   const handleSearch = async () => {
     if (!query) return;
+    setIsSearching(true);
     try {
       const queryText = query.trim();
       const res = await fetch("/api/ai", {
@@ -98,6 +113,7 @@ export default function Page() {
       const data = await res.json();
       const resultText = data.result || "";
       setAiResult(resultText);
+
       const lower = `${queryText} ${resultText}`.toLowerCase();
       const risk: RiskLevel =
         lower.includes("urgent") ||
@@ -106,9 +122,18 @@ export default function Page() {
         lower.includes("severe")
           ? "high"
           : "low";
-      recordMedicationQuery(user, queryText, resultText.slice(0, 180), risk);
+          
+      // Generate immutable session context mapped perfectly across DB metrics
+      const newId = generateId();
+      recordMedicationQuery(user, newId, queryText, resultText.slice(0, 180), risk);
+      saveLocalSession(newId, { query: queryText, aiResult: resultText });
+      
+      // Sync URL dynamically to enable browser-back functionality correctly
+      router.replace(`/dashboard/MedicationAssistant?id=${newId}`);
+      
     } catch (error) {
-      console.error("Failed to fetch AI guidance", error);
+    } finally {
+      setIsSearching(false);
     }
   };
 
@@ -219,9 +244,17 @@ export default function Page() {
           <div className="bg-[#e6f7f7] p-2 rounded-xl">
             <Pill className="w-6 h-6 text-[#0ebcb9] rotate-45" strokeWidth={2} />
           </div>
-          <h2 className="text-xl font-bold text-[#0f172a]">
+          <h2 className="text-xl font-bold text-[#0f172a] flex-1">
             Medication Assistant
           </h2>
+          {queryId && (
+            <button 
+              onClick={() => router.push("/dashboard/MedicationAssistant")} 
+              className="text-sm text-[#0ebcb9] font-medium hover:underline flex items-center gap-1"
+            >
+              <Plus className="w-4 h-4" /> New Query
+            </button>
+          )}
         </div>
 
         <div className="flex gap-3 items-center">
@@ -240,14 +273,16 @@ export default function Page() {
 
           <button
             onClick={handleSearch}
-            className="bg-[#a6e6e5] text-[#0d9488] px-8 py-3 rounded-2xl font-semibold hover:bg-[#8fd9d8] transition-colors shadow-sm"
+            disabled={isSearching}
+            className="bg-[#a6e6e5] text-[#0d9488] px-8 py-3 rounded-2xl font-semibold hover:bg-[#8fd9d8] transition-colors shadow-sm disabled:opacity-50"
           >
-            Search
+            {isSearching ? "Searching..." : "Search"}
           </button>
         </div>
 
         {aiResult && (
           <div className="mt-6 p-4 bg-gray-50 rounded-2xl text-gray-700 leading-relaxed border border-gray-100">
+             {/* If it's pure text or HTML safely loaded, basic text is fine */}
             {aiResult}
           </div>
         )}
@@ -261,6 +296,15 @@ export default function Page() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Suspense wrap cleanly for Next.js App Router 
+export default function Page() {
+  return (
+    <Suspense fallback={<div className="p-10 flex items-center justify-center"><Loader /></div>}>
+      <PageContent />
+    </Suspense>
   );
 }
 

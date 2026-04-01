@@ -20,7 +20,7 @@ import {
   PromptInputActionAddAttachments,
 } from "@/components/ai-elements/prompt-input";
 import { Action, Actions } from "@/components/ai-elements/actions";
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useChat } from "@ai-sdk/react";
 import { Response } from "@/components/ai-elements/response";
 import { CopyIcon, Mic, MicOff, Plus } from "lucide-react";
@@ -37,23 +37,59 @@ import {
 } from "@/components/ai-elements/reasoning";
 import { Loader } from "@/components/ai-elements/loader";
 import { useAuth } from "@/contexts/AuthContext";
-import { recordChatMessage, RiskLevel } from "@/lib/userMetrics";
+import { recordChatMessage, RiskLevel, generateId, saveLocalSession, loadLocalSession } from "@/lib/userMetrics";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useEffect, useRef } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 
-const AIChat = () => {
+const AIChatContent = () => {
   const [input, setInput] = useState("");
   const [language, setLanguage] = useState("English");
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
 
-  const { messages, sendMessage, status } = useChat();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  
+  const queryId = searchParams.get("id");
+  const [chatId, setChatId] = useState(queryId || generateId());
+
+  const { messages, sendMessage, status, setMessages } = useChat({
+    id: chatId,
+  });
+
   const { user } = useAuth();
 
   useEffect(() => {
-    // Initialize Speech Recognition for voice input
+    if (queryId) {
+      setChatId(queryId);
+      const saved = loadLocalSession(queryId);
+      if (saved && Array.isArray(saved) && saved.length > 0) {
+        setMessages(saved);
+      } else {
+        // Legacy chats without detailed local storage history fallback
+        setMessages([{
+           id: generateId(),
+           role: 'assistant',
+           parts: [{ type: 'text', text: "I'm sorry! CareBot+ was recently upgraded, and unfortunately the raw array data for this specific older session was not stored. Only sessions created from this point forward will be fully recoverable!" }]
+        }]);
+      }
+    } else {
+      const newId = generateId();
+      setChatId(newId);
+      setMessages([]);
+    }
+  }, [queryId, setMessages]);
+
+  // Persist aggressively on message change
+  useEffect(() => {
+    if (messages.length > 0) {
+      saveLocalSession(chatId, messages);
+    }
+  }, [messages, chatId]);
+
+  useEffect(() => {
     if (typeof window !== "undefined") {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
@@ -89,8 +125,6 @@ const AIChat = () => {
         recognitionRef.current.lang = langMap[language] || "en-US";
         recognitionRef.current.start();
         setIsRecording(true);
-      } else {
-        alert("Speech Recognition API is not supported in this browser.");
       }
     }
   };
@@ -134,18 +168,14 @@ const AIChat = () => {
               mediaType: file.mediaType || 'image/jpeg',
               filename: file.filename || 'image.jpg'
             });
-          } catch (e) {
-            console.error("Failed to read attachment", e);
-          }
+          } catch (e) {}
         }
       }
     }
 
     try {
-      recordChatMessage(user, value, value, classifyRisk(value));
-    } catch (e) {
-      // ignore metrics errors if context unready
-    }
+      recordChatMessage(user, chatId, value, value, classifyRisk(value));
+    } catch (e) {}
     
     if (language !== "English") {
       parts[0].text = `[Important: You must respond in the ${language} language.]\n\n${value || "Hello"}`;
@@ -154,11 +184,15 @@ const AIChat = () => {
     // @ts-ignore
     sendMessage({ role: 'user', parts });
     setInput("");
+    
+    // Auto update URL if started new chat without refresh
+    if (!queryId) {
+      router.replace(`/dashboard/chat?id=${chatId}`);
+    }
   };
 
   return (
     <div className="max-w-4xl mx-auto w-full px-2 sm:px-6 relative flex flex-col h-[calc(100vh-140px)] md:h-[calc(100vh-160px)]">
-        {/* Header Controls */}
         <div className="flex items-center justify-between mb-4 bg-white p-3 rounded-xl shadow-sm z-10 shrink-0">
           <Select value={language} onValueChange={setLanguage}>
             <SelectTrigger className="w-[180px] h-9 bg-white opacity-100 shadow-sm border-slate-200 text-slate-600 transition-colors">
@@ -177,7 +211,7 @@ const AIChat = () => {
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => window.location.reload()}
+            onClick={() => router.push("/dashboard/chat")}
             className="text-slate-600 hover:text-slate-900 gap-2"
           >
             <Plus className="size-4" />
@@ -216,11 +250,13 @@ const AIChat = () => {
                 {message.parts.map((part, i) => {
                   switch (part.type) {
                     case "text":
+                      // Hide internal system language prompt visually from history
+                      const renderText = part.text.replace(/\[Important: You must respond in the .*? language\.\]\n\n/, "");
                       return (
                         <React.Fragment key={`${message.id}-${i}`}>
                           <Message from={message.role}>
                             <MessageContent>
-                              <Response>{part.text}</Response>
+                              <Response>{renderText}</Response>
                             </MessageContent>
                           </Message>
                           {message.role === "assistant" &&
@@ -228,7 +264,7 @@ const AIChat = () => {
                               <Actions className="mt-2">
                                 <Action
                                   onClick={() =>
-                                    navigator.clipboard.writeText(part.text)
+                                    navigator.clipboard.writeText(renderText)
                                   }
                                   label="Copy"
                                 >
@@ -313,4 +349,10 @@ const AIChat = () => {
   );
 };
 
-export default AIChat;
+export default function AIChat() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader /></div>}>
+      <AIChatContent />
+    </Suspense>
+  );
+}
