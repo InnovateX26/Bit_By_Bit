@@ -8,23 +8,23 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        border: 'rgb(var(--border) / <alpha-value>)',
-        background: 'rgb(var(--background) / <alpha-value>)',
-        foreground: 'rgb(var(--foreground) / <alpha-value>)',
-        'card': 'rgb(var(--card) / <alpha-value>)',
-        'card-foreground': 'rgb(var(--card-foreground) / <alpha-value>)',
-        'primary': 'rgb(var(--primary) / <alpha-value>)',
-        'primary-foreground': 'rgb(var(--primary-foreground) / <alpha-value>)',
-        'secondary': 'rgb(var(--secondary) / <alpha-value>)',
-        'secondary-foreground': 'rgb(var(--secondary-foreground) / <alpha-value>)',
-        'muted': 'rgb(var(--muted) / <alpha-value>)',
-        'muted-foreground': 'rgb(var(--muted-foreground) / <alpha-value>)',
-        'accent': 'rgb(var(--accent) / <alpha-value>)',
-        'accent-foreground': 'rgb(var(--accent-foreground) / <alpha-value>)',
-        'destructive': 'rgb(var(--destructive) / <alpha-value>)',
-        'destructive-foreground': 'rgb(var(--destructive-foreground) / <alpha-value>)',
-        input: 'rgb(var(--input) / <alpha-value>)',
-        ring: 'rgb(var(--ring) / <alpha-value>)'
+        border: 'hsl(var(--border) / <alpha-value>)',
+        background: 'hsl(var(--background) / <alpha-value>)',
+        foreground: 'hsl(var(--foreground) / <alpha-value>)',
+        'card': 'hsl(var(--card) / <alpha-value>)',
+        'card-foreground': 'hsl(var(--card-foreground) / <alpha-value>)',
+        'primary': 'hsl(var(--primary) / <alpha-value>)',
+        'primary-foreground': 'hsl(var(--primary-foreground) / <alpha-value>)',
+        'secondary': 'hsl(var(--secondary) / <alpha-value>)',
+        'secondary-foreground': 'hsl(var(--secondary-foreground) / <alpha-value>)',
+        'muted': 'hsl(var(--muted) / <alpha-value>)',
+        'muted-foreground': 'hsl(var(--muted-foreground) / <alpha-value>)',
+        'accent': 'hsl(var(--accent) / <alpha-value>)',
+        'accent-foreground': 'hsl(var(--accent-foreground) / <alpha-value>)',
+        'destructive': 'hsl(var(--destructive) / <alpha-value>)',
+        'destructive-foreground': 'hsl(var(--destructive-foreground) / <alpha-value>)',
+        input: 'hsl(var(--input) / <alpha-value>)',
+        ring: 'hsl(var(--ring) / <alpha-value>)'
       },
       borderRadius: {
         DEFAULT: 'var(--radius)'
